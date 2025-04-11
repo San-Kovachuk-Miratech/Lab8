@@ -1,0 +1,72 @@
+name: "CodeQL Python Analysis"
+
+on:
+  push:
+    branches: [ "master", "main" ] # Додано 'main' як поширену назву гілки
+  pull_request:
+    branches: [ "master", "main" ] # Додано 'main'
+  schedule:
+    # Запускати щовівторка о 16:18 UTC (приклад)
+    - cron: '18 16 * * 2'
+
+jobs:
+  analyze:
+    name: Analyze (Python)
+    # Запускати на останній версії Ubuntu
+    runs-on: ubuntu-latest
+
+    permissions:
+      actions: read       # Потрібно для checkout
+      contents: read      # Потрібно для checkout
+      security-events: write # Потрібно для завантаження результатів CodeQL
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Аналізуємо тільки Python
+        language: ['python']
+        # Можна вказати конкретні версії Python для тестування
+        # python-version: ['3.8', '3.9', '3.10'] # Розкоментуйте, якщо потрібно тестувати на кількох версіях
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # (Опціонально, але рекомендовано) Встановлення потрібної версії Python
+    # Якщо ваш проєкт залежить від конкретної версії
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        # Використовувати версію Python з матриці або вказати конкретну
+        python-version: ${{ matrix.python-version || '3.10' }} # За замовчуванням 3.10, якщо матриця не визначена
+
+    # (Опціонально, але часто необхідно) Встановлення залежностей
+    # Якщо CodeQL потрібно розуміти імпорти та залежності вашого проєкту
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        # Додайте інші команди встановлення, якщо потрібно (наприклад, для setup.py)
+
+    # Ініціалізація CodeQL аналізатора
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # Для Python часто не потрібен явний build-mode,
+        # CodeQL може автоматично визначити залежності.
+        # build-mode: ${{ matrix.build-mode }} # Можна залишити закоментованим або використати autobuild
+
+    # (Якщо використовується build-mode: manual) Крок для ручної збірки
+    # - if: matrix.build-mode == 'manual'
+    #   shell: bash
+    #   run: |
+    #     # Ваші команди для збірки Python проєкту, якщо вони є
+    #     echo "Manual build step for Python (if needed)"
+    #     exit 1 # Приклад помилки, якщо крок не налаштований
+
+    # Виконання аналізу CodeQL
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
